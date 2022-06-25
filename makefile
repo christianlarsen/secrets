@@ -2,7 +2,7 @@ BIN_LIB=CMPSYS
 LIBLIST=$(BIN_LIB) CLV1
 SHELL=/QOpenSys/usr/bin/qsh
 
-all: secret1.sql 
+all: secret1.sql secret1.sqlrpgle secret2.sqlrpgle
 
 %.sqlrpgle:
 	system -s "CHGATR OBJ('/home/CLV/secrets/qrpglesrc/$*.sqlrpgle') ATR(*CCSID) VALUE(1252)"
