@@ -1,21 +1,34 @@
-BIN_LIB=CMPSYS
-LIBLIST=$(BIN_LIB) CLV1
-SHELL=/QOpenSys/usr/bin/qsh
+# Build the Db2 for i encryption examples.
+#
+#   gmake                    -> builds everything into library SECRETS
+#   gmake BIN_LIB=MYLIB      -> builds everything into library MYLIB
+#
+# The library is created if it does not exist. Source paths are taken
+# from the directory where gmake runs, so the project can live anywhere
+# in the IFS.
 
-all: secret1.sql secret1.sqlrpgle secret2.sqlrpgle
+BIN_LIB ?= SECRETS
+SHELL   = /QOpenSys/usr/bin/qsh
+SRCDIR  = $(CURDIR)
+# The sources are plain ASCII. They are tagged 1252 because the RPG compiler
+# does not accept a Unicode (1208) source with its default TGTCCSID(*SRC).
+CCSID   = 1252
 
-%.sqlrpgle:
-	system -s "CHGATR OBJ('/home/CLV/secrets/qrpglesrc/$*.sqlrpgle') ATR(*CCSID) VALUE(1252)"
-	liblist -a $(LIBLIST);\
-	system "CRTSQLRPGI OBJ($(BIN_LIB)/$*) SRCSTMF('/home/CLV/secrets/qrpglesrc/$*.sqlrpgle') COMMIT(*CHG) DBGVIEW(*SOURCE) OPTION(*EVENTF) OBJTYPE(*MODULE) RPGPPOPT(*LVL2)"
-	system "CRTPGM PGM($(BIN_LIB)/$*) MODULE($(BIN_LIB)/$*)"
-	system "DLTOBJ OBJ($(BIN_LIB)/$*) OBJTYPE(*MODULE)"
+.PHONY: all lib
 
-%.rpgle:
-	system -s "CHGATR OBJ('/home/CLV/secrets/qrpglesrc/$*.rpgle') ATR(*CCSID) VALUE(1252)"
-	liblist -a $(LIBLIST);\
-	system "CRTBNDRPG PGM($(BIN_LIB)/$*) SRCSTMF('/home/CLV/secrets/qrpglesrc/$*.rpgle') DBGVIEW(*ALL) OPTION(*EVENTF)"
+all: secrets.sql secretadd.sqlrpgle secretget.sqlrpgle
+
+# The table must exist before the programs that use it are compiled.
+secrets.sql: lib
+secretadd.sqlrpgle secretget.sqlrpgle: secrets.sql
+
+lib:
+	-system -q "CRTLIB LIB($(BIN_LIB)) TEXT('Db2 for i encryption examples')"
 
 %.sql:
-	system -s "CHGATR OBJ('/home/CLV/secrets/qsqlsrc/$*.sql') ATR(*CCSID) VALUE(1252)"
-	system -s "RUNSQLSTM SRCSTMF('/home/CLV/secrets/qsqlsrc/$*.sql') COMMIT(*NONE)"
+	system -s "CHGATR OBJ('$(SRCDIR)/qsqlsrc/$*.sql') ATR(*CCSID) VALUE($(CCSID))"
+	system "RUNSQLSTM SRCSTMF('$(SRCDIR)/qsqlsrc/$*.sql') COMMIT(*NONE) NAMING(*SQL) DFTRDBCOL($(BIN_LIB)) ERRLVL(20)"
+
+%.sqlrpgle:
+	system -s "CHGATR OBJ('$(SRCDIR)/qrpglesrc/$*.sqlrpgle') ATR(*CCSID) VALUE($(CCSID))"
+	system "CRTSQLRPGI OBJ($(BIN_LIB)/$*) SRCSTMF('$(SRCDIR)/qrpglesrc/$*.sqlrpgle') OBJTYPE(*PGM) COMMIT(*NONE) DFTRDBCOL($(BIN_LIB)) DBGVIEW(*SOURCE) OPTION(*EVENTF) RPGPPOPT(*LVL2)"
